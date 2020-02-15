@@ -1,0 +1,130 @@
+-- | Este módulo define funções comuns da Tarefa 4 do trabalho prático.
+module Tarefa4_2018li1g006 where
+
+import LI11819
+import Tarefa0_2018li1g006
+import Tarefa1_2018li1g006
+import Tarefa2_2018li1g006
+import Tarefa3_2018li1g006
+
+-- * Testes
+-- | Testes unitários da Tarefa 4.
+--
+-- Cada teste é um 'Estado'.
+testesT4 :: [Estado]
+testesT4 = []
+
+-- * Funções principais da Tarefa 4.
+
+-- | Avança o 'Estado' do jogo um 'Tick' de tempo.
+--
+-- __NB:__ Apenas os 'Disparo's afetam o 'Estado' do jogo com o passar do tempo.
+--
+-- __NB:__ Deve chamar as funções 'tickChoques', 'tickCanhoes' e 'tickLasers' pela ordem definida.
+tick :: Estado -- ^ O 'Estado' anterior.
+     -> Estado -- ^ O 'Estado' após um 'Tick'.
+tick  = tickChoques . tickCanhoes . tickLasers 
+
+-- | Avança o 'Estado' do jogo um 'Tick' de tempo, considerando apenas os efeitos dos tiros de 'Laser' disparados.
+tickLasers :: Estado -> Estado
+tickLasers = undefined
+{-
+tickLasers a |d== C | (DisparoLaser j (x,y) d):t encontraPosicaoMatriz (x,y) (h:t)
+                    |  
+             |d== B = undefined
+             |d== E = undefined
+             |d== D = undefined
+
+fazLaser :: [Disparo] -> [Disparo]
+fazLaser [] = []
+fazLaser ((DisparoLaser j (x,y) d):t)  |d== C | (DisparoLaser j (x,y) d):t 
+                                              |
+                                              |
+                                       |d== B = undefined
+                                       |d== E = undefined
+                                       |d== D = undefined
+-}
+
+
+-- | Avança o 'Estado' do jogo um 'Tick' de tempo, considerando apenas os efeitos das balas de 'Canhao' disparadas.
+tickCanhoes :: Estado -> Estado
+tickCanhoes (Estado m js  []) = Estado m js []
+tickCanhoes (Estado m js (dh:dt)) |balaMover m dh && verJogador dh js = Estado m js (adiciona (moveDisparo dh) (tickCanhoes (Estado m js dt)))
+                                  |otherwise = tickCanhoes (destroiParedeCanhao (Estado m js (dh:dt)) dh)
+
+moveDisparo :: Disparo -> Disparo
+moveDisparo (DisparoCanhao j (x,y) d) |d==C = DisparoCanhao j (x-1,y) C
+                                      |d==D = DisparoCanhao j (x,y+1) D
+                                      |d==E = DisparoCanhao j (x,y-1) E
+                                      |d==B = DisparoCanhao j (x+1,y) B
+moveDisparo h = h
+
+balaMover :: Mapa -> Disparo -> Bool -- Só para ver se tem parede ou nao
+balaMover m (DisparoCanhao j (x,y) d) |d == C && (encontraPosicaoMatriz (x,y) m == Vazia) && (encontraPosicaoMatriz (x,y+1) m == Vazia) = True
+                                      |d == D && (encontraPosicaoMatriz (x,y+1) m == Vazia) && (encontraPosicaoMatriz (x+1,y+1) m == Vazia) = True
+                                      |d == B && (encontraPosicaoMatriz (x+1,y) m == Vazia) && (encontraPosicaoMatriz (x+1,y+1) m == Vazia) = True
+                                      |d == E && (encontraPosicaoMatriz (x,y) m == Vazia) && (encontraPosicaoMatriz (x+1,y) m == Vazia) = True
+                                      |otherwise = False
+balaMover m _ = True
+
+verJogador :: Disparo -> [Jogador] -> Bool -- True nao ha jogador
+verJogador _ [] = True
+verJogador (DisparoCanhao j (x,y) d) ((Jogador (m,n) dr v las choq):t) |((m == x && n-1 == y) || (m == x && n+1 == y) || (m+1 == x && n == y) || (m-1 == x && n == y) || (m==x && n == y) || (m-1 == x && n-1 == y) || (m-1 == x && n+1 == y) || (m+1 == x && n-1 == y) || (m+1 == x && n+1 == y)) == False = verJogador (DisparoCanhao j (x,y) d) t
+                                                                       |otherwise = False
+
+
+destroiParedeCanhao :: Estado -> Disparo -> Estado
+destroiParedeCanhao (Estado m js ds) (DisparoCanhao j (x,y) C) |(encontraPosicaoMatriz (x,y) m == (Bloco Indestrutivel))   && (encontraPosicaoMatriz (x,y+1) m == (Bloco Indestrutivel))   = Estado m js (removeDisparo (DisparoCanhao j (x,y) C) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Indestrutivel))   && (encontraPosicaoMatriz (x,y+1) m == (Vazia))                 = Estado m js (removeDisparo (DisparoCanhao j (x,y) C) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Destrutivel))     && (encontraPosicaoMatriz (x,y+1) m == (Vazia))                 = Estado (atualizaPosicaoMatriz (x,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) C) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == Vazia)                   && (encontraPosicaoMatriz (x,y+1) m == (Bloco Indestrutivel))   = Estado m js (removeDisparo (DisparoCanhao j (x,y) C) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == Vazia)                   && (encontraPosicaoMatriz (x,y+1) m == (Bloco Destrutivel))     = Estado (atualizaPosicaoMatriz (x,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) C) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Indestrutivel))   && (encontraPosicaoMatriz (x,y+1) m == (Bloco Destrutivel))     = Estado (atualizaPosicaoMatriz (x,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) C) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Destrutivel))     && (encontraPosicaoMatriz (x,y+1) m == (Bloco Indestrutivel))   = Estado (atualizaPosicaoMatriz (x,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) C) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Destrutivel))     && (encontraPosicaoMatriz (x,y+1) m == (Bloco Destrutivel))     = Estado ((atualizaPosicaoMatriz (x,y+1) Vazia (atualizaPosicaoMatriz (x,y) Vazia m))) js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+destroiParedeCanhao (Estado m js ds) (DisparoCanhao j (x,y) D) |(encontraPosicaoMatriz (x,y+1) m == (Bloco Indestrutivel)) && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Indestrutivel)) = Estado m js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+                                                               |(encontraPosicaoMatriz (x,y+1) m == (Bloco Indestrutivel)) && (encontraPosicaoMatriz (x+1,y+1) m == (Vazia))               = Estado m js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+                                                               |(encontraPosicaoMatriz (x,y+1) m == (Bloco Destrutivel))   && (encontraPosicaoMatriz (x+1,y+1) m == (Vazia))               = Estado (atualizaPosicaoMatriz (x,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+                                                               |(encontraPosicaoMatriz (x,y+1) m == Vazia)                 && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Indestrutivel)) = Estado m js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+                                                               |(encontraPosicaoMatriz (x,y+1) m == Vazia)                 && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Destrutivel))   = Estado (atualizaPosicaoMatriz (x+1,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+                                                               |(encontraPosicaoMatriz (x,y+1) m == (Bloco Indestrutivel)) && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Destrutivel))   = Estado (atualizaPosicaoMatriz (x+1,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+                                                               |(encontraPosicaoMatriz (x,y+1) m == (Bloco Destrutivel))   && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Indestrutivel)) = Estado (atualizaPosicaoMatriz (x,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+                                                               |(encontraPosicaoMatriz (x,y+1) m == (Bloco Destrutivel))   && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Destrutivel))   = Estado ((atualizaPosicaoMatriz (x,y+1) Vazia (atualizaPosicaoMatriz (x+1,y+1) Vazia m))) js (removeDisparo (DisparoCanhao j (x,y) D) ds)
+destroiParedeCanhao (Estado m js ds) (DisparoCanhao j (x,y) B) |(encontraPosicaoMatriz (x+1,y) m == (Bloco Indestrutivel)) && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Indestrutivel)) = Estado m js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+                                                               |(encontraPosicaoMatriz (x+1,y) m == (Bloco Indestrutivel)) && (encontraPosicaoMatriz (x+1,y+1) m == (Vazia))               = Estado m js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+                                                               |(encontraPosicaoMatriz (x+1,y) m == (Bloco Destrutivel))   && (encontraPosicaoMatriz (x+1,y+1) m == (Vazia))               = Estado (atualizaPosicaoMatriz (x+1,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+                                                               |(encontraPosicaoMatriz (x+1,y) m == Vazia)                 && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Indestrutivel)) = Estado m js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+                                                               |(encontraPosicaoMatriz (x+1,y) m == Vazia)                 && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Destrutivel))   = Estado (atualizaPosicaoMatriz (x+1,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+                                                               |(encontraPosicaoMatriz (x+1,y) m == (Bloco Indestrutivel)) && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Destrutivel))   = Estado (atualizaPosicaoMatriz (x+1,y+1) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+                                                               |(encontraPosicaoMatriz (x+1,y) m == (Bloco Destrutivel))   && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Indestrutivel)) = Estado (atualizaPosicaoMatriz (x+1,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+                                                               |(encontraPosicaoMatriz (x+1,y) m == (Bloco Destrutivel))   && (encontraPosicaoMatriz (x+1,y+1) m == (Bloco Destrutivel))   = Estado ((atualizaPosicaoMatriz (x+1,y) Vazia (atualizaPosicaoMatriz (x+1,y+1) Vazia m))) js (removeDisparo (DisparoCanhao j (x,y) B) ds)
+destroiParedeCanhao (Estado m js ds) (DisparoCanhao j (x,y) E) |(encontraPosicaoMatriz (x,y) m == (Bloco Indestrutivel))   && (encontraPosicaoMatriz (x+1,y) m == (Bloco Indestrutivel))   = Estado m js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Indestrutivel))   && (encontraPosicaoMatriz (x+1,y) m == (Vazia))                 = Estado m js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Destrutivel))     && (encontraPosicaoMatriz (x+1,y) m == (Vazia))                 = Estado (atualizaPosicaoMatriz (x,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == Vazia)                   && (encontraPosicaoMatriz (x+1,y) m == (Bloco Indestrutivel))   = Estado m js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == Vazia)                   && (encontraPosicaoMatriz (x+1,y) m == (Bloco Destrutivel))     = Estado (atualizaPosicaoMatriz (x+1,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Indestrutivel))   && (encontraPosicaoMatriz (x+1,y) m == (Bloco Destrutivel))     = Estado (atualizaPosicaoMatriz (x+1,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Destrutivel))     && (encontraPosicaoMatriz (x+1,y) m == (Bloco Indestrutivel))   = Estado (atualizaPosicaoMatriz (x,y) Vazia m) js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+                                                               |(encontraPosicaoMatriz (x,y) m == (Bloco Destrutivel))     && (encontraPosicaoMatriz (x+1,y) m == (Bloco Destrutivel))     = Estado ((atualizaPosicaoMatriz (x,y) Vazia (atualizaPosicaoMatriz (x+1,y) Vazia m))) js (removeDisparo (DisparoCanhao j (x,y) E) ds)
+
+
+
+
+adiciona :: Disparo -> Estado -> [Disparo]
+adiciona n (Estado m js []) = [n]
+adiciona n (Estado m js (h:t)) = (n:h:t) 
+
+removeDisparo :: Disparo -> [Disparo] -> [Disparo]
+removeDisparo _ [] = []
+removeDisparo n (h:t) |n == h = t
+                      |otherwise = h:removeDisparo n t
+
+-- | Avança o 'Estado' do jogo um 'Tick' de tempo, considerando apenas os efeitos dos campos de 'Choque' disparados.
+tickChoques :: Estado -> Estado
+tickChoques (Estado m js (dh:dt)) = (Estado m js (alteraChoque (dh:dt)))
+
+alteraChoque :: [Disparo] -> [Disparo]
+alteraChoque [] = []
+alteraChoque ((DisparoChoque j 0):t) = alteraChoque t
+alteraChoque ((DisparoChoque j ts):t) = (DisparoChoque j (ts-1)) : alteraChoque t
+alteraChoque (h:t) = h: alteraChoque t 
